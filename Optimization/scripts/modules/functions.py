@@ -1,33 +1,22 @@
 import os
 import numpy as np
-import random
 import shutil
 
-import pandas as pd
 import skimage
 import skimage.io
 from skimage.transform import resize
 from PIL import Image
 import matplotlib.pyplot as plt
-import imageio
 
 import tensorflow as tf
-import tensorflow_addons as tfa
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import Conv2DTranspose
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.layers import Lambda
-from tensorflow.keras import Model
 from keras import backend as K
 from tensorflow.keras.metrics import MeanIoU
 
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix, accuracy_score
-import seaborn as sns
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -206,11 +195,11 @@ def metrics(X_test, y_test, unet, value):
     return(IOU_keras.result().numpy(), acc_keras.result().numpy(), recall_keras.result().numpy(), precision_keras.result().numpy(), f1_keras)
 
 def saveImgs(X_test, y_test, unet, thresh):
-    path = '/home/calvina/imgs'
+    path = '/home/calvina/imgs/RGB'
     if not os.path.exists(path) and not os.path.isdir(path):
         os.mkdir(path)
 
-    path2 = '/home/calvina/imgs/exp7-initial-and-noise-dataset'
+    path2 = '/home/calvina/imgs/RGB/exp1-initial-dataset'
     if os.path.exists(path2) and os.path.isdir(path2):
         shutil.rmtree(path2)
         os.mkdir(path2)
@@ -293,80 +282,8 @@ def IoULoss(y_true, y_pred, smooth=1e-6):
     
     IoU = (intersection + smooth) / (union + smooth)
     return 1 - IoU
-
 #############################################################
-input_dir = ['/home/calvina/Jupyter/HER2_images_pixel_segmentation/imgs/',
-            '/home/calvina/Jupyter/HER2_images_pixel_segmentation/imgs_augmented/noise']
 
-target_dir = ['/home/calvina/Jupyter/HER2_images_pixel_segmentation/labels/',
-            '/home/calvina/Jupyter/HER2_images_pixel_segmentation/labels_augmented/noise']
-
-
-imgs, masks = loadDataset(input_dir, target_dir)
-
-target_img_shape = [128, 128, 3]
-target_mask_shape = [128, 128, 1]
-
-X, y = preProcessDataset(imgs, masks, target_img_shape, target_mask_shape)
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
-X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=123)
-
-####################
 
 def clear():
     os.system('clear')
-
-losses = ['binary_crossentropy', DiceLoss, IoULoss, Weighted_BCEnDice_loss, tfa.losses.SigmoidFocalCrossEntropy()]
-thresholds = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-learning_rate = [0.001, 0.002, 0.003]
-epochs = [25, 50]
-prev_f1_value = 0
-cnn_spec = ''
-data = []
-
-for i in losses:
-  for j in thresholds:
-    for k in learning_rate:
-      for e in epochs:
-        unet = UNetCompiled(input_size=(128, 128, 3), n_filters=32, n_classes=1)
-        unet.compile(optimizer=tf.keras.optimizers.Adam(learning_rate = k), 
-                     loss=i, 
-                     metrics=[tfa.metrics.F1Score(num_classes=2, threshold=j, average='micro'), tf.keras.metrics.AUC(), 
-                              tf.keras.metrics.TruePositives(thresholds=j), tf.keras.metrics.FalsePositives(thresholds=j), 
-                              tf.keras.metrics.TrueNegatives(thresholds=j), tf.keras.metrics.FalseNegatives(thresholds=j)])
-        results = unet.fit(X_train, y_train, batch_size=32, epochs=e, validation_data=(X_val, y_val), verbose=1)
-        loss, f1_score, auc, tp, fp, tn, fn = unet.evaluate(X_test, y_test)
-        IoU_keras, acc_keras, recall_keras, precision_keras, f1_keras = metrics(X_test, y_test, unet, j)
-        
-        if (i == 'binary_crossentropy'):
-          data.append(['Adam', 'BCE', j, k, e, loss, acc_keras, precision_keras, recall_keras, f1_score, IoU_keras, auc, tp, fp, tn, fn])
-        elif (i == DiceLoss):
-          data.append(['Adam', 'Dice', j, k, e, loss, acc_keras, precision_keras, recall_keras, f1_score, IoU_keras, auc, tp, fp, tn, fn])
-        elif (i == IoULoss):
-          data.append(['Adam', 'IoU', j, k, e, loss, acc_keras, precision_keras, recall_keras, f1_score, IoU_keras, auc, tp, fp, tn, fn])
-        elif (i == Weighted_BCEnDice_loss):
-          data.append(['Adam', 'Weighted BCE/Dice', j, k, e, loss, acc_keras, precision_keras, recall_keras, f1_score, IoU_keras, auc, tp, fp, tn, fn])
-        else:
-          data.append(['Adam', 'SFCE', j, k, e, loss, acc_keras, precision_keras, recall_keras, f1_score, IoU_keras, auc, tp, fp, tn, fn])
-
-        if f1_score > prev_f1_value:
-          cnn_spec = f'Best f1-score get from Adam w Learning rate: {k} - Loss: {i} - Threshold: {j} - Epochs: {e}'
-          prev_f1_value = f1_score
-          saveImgs(X_test, y_test, unet, j)
-          unet.save('saved_models/HER2_image_segmentation_initial_and_noise_dataset.hdf5')
-
-        clear()
-
-  
-
-print(cnn_spec)
-################################################################
-
-df = pd.DataFrame(data,
-                  columns=['Optimizer', 'Loss Function', 'Threshold', 'Learning rate', 'Epochs', 
-                           'Loss', 'Acc', 'Precision', 'Recall', 'F1-Score', 'Mean IoU', 'AUC', 'TP', 'FP', 'TN', 'FN'])
-
-res = df.set_index(['Optimizer', 'Loss Function', 'Threshold', 'Learning rate', 'Epochs'])
-print(res)
-df.to_csv('07optimization_initial_and_noise_dataset.csv', index=False)
