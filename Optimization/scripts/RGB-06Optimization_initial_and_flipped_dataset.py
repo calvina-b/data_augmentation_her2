@@ -59,7 +59,7 @@ for i in losses:
         if f1_score > prev_f1_value:
           cnn_spec = f'Best f1-score get from Adam w Learning rate: {k} - Loss: {i} - Threshold: {j} - Epochs: {e}'
           prev_f1_value = f1_score
-          func.saveImgs(X_test, y_test, unet, j)
+          func.saveImgs(X_test, y_test, unet, j, 6)
           unet.save('saved_models/RGB/HER2_image_segmentation_initial_and_flipped_dataset.hdf5')
 
         func.clear()

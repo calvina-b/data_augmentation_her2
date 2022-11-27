@@ -194,12 +194,17 @@ def metrics(X_test, y_test, unet, value):
     
     return(IOU_keras.result().numpy(), acc_keras.result().numpy(), recall_keras.result().numpy(), precision_keras.result().numpy(), f1_keras)
 
-def saveImgs(X_test, y_test, unet, thresh):
+def saveImgs(X_test, y_test, unet, thresh, id):
+    experiments = ['exp1-initial-dataset', 'exp2-initial-and-blur-dataset', 'exp3-initial-and-brightness-dataset', 
+    'exp4-initial-and-contrast-dataset', 'exp5-initial-and-crop-dataset', 'exp6-initial-and-flipped-dataset',
+    'exp7-initial-and-noise-dataset', 'exp8-initial-and-rotation-dataset', 'exp9-initial-and-transpose-dataset',
+    'exp10-full-dataset']
+
     path = '/home/calvina/imgs/RGB'
     if not os.path.exists(path) and not os.path.isdir(path):
         os.mkdir(path)
 
-    path2 = '/home/calvina/imgs/RGB/exp1-initial-dataset'
+    path2 = '/home/calvina/imgs/RGB/%s' % experiments[id - 1]
     if os.path.exists(path2) and os.path.isdir(path2):
         shutil.rmtree(path2)
         os.mkdir(path2)
